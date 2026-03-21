@@ -50,47 +50,6 @@ jobs:
             echo "months=${CURRENT},${NEXT}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Debug primp
-        run: |
-          python -c "
-          import primp
-          print('primp version:', primp.__version__ if hasattr(primp, '__version__') else 'unknown')
-          print('primp dir:', [x for x in dir(primp) if not x.startswith('_')])
-          print('primp.primp dir:', [x for x in dir(primp.primp) if not x.startswith('_')])
-          # Check if there's an impersonate enum or list
-          import inspect
-          sig = inspect.signature(primp.Client.__init__)
-          print('Client.__init__ signature:', sig)
-          "
-
-      - name: Test actual Google Flights fetch
-        run: |
-          python -c "
-          from primp import Client
-          import warnings, logging
-          logging.disable(logging.CRITICAL)
-          warnings.filterwarnings('error')
-
-          # Find a version that doesn't warn
-          versions = ['chrome_131','chrome_130','chrome_128','chrome_126','chrome_120','chrome_116',
-                      'chrome_108','chrome_104','chrome_100',
-                      'safari_18','safari_17_5','safari_17_0','safari_16_5',
-                      'edge_131','edge_127',
-                      'Chrome131','Chrome130','Chrome128','Chrome126',
-                      'chrome-131','chrome-130',
-                      'CHROME_131','CHROME_130']
-          for v in versions:
-              warnings.resetwarnings()
-              warnings.filterwarnings('error')
-              try:
-                  c = Client(impersonate=v, verify=False)
-                  print(f'{v}: NO WARNING - works!')
-              except Warning as w:
-                  print(f'{v}: warned - {w}')
-              except Exception as e:
-                  print(f'{v}: error - {e}')
-          "
-
       - name: Show database status before refresh
         run: |
           if [ -f ~/.flightcache/flights.db ]; then
