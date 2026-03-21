@@ -28,7 +28,7 @@ jobs:
           cache: 'pip'
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.txt requests
 
       - name: Restore cache database
         uses: actions/cache/restore@v4
@@ -57,6 +57,14 @@ jobs:
             echo "=== Refreshing ${MONTH} ==="
             python refresher.py --month "${MONTH}" || true
           done
+
+      - name: Sync to Cloudflare D1
+        if: always()
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_D1_DATABASE_ID: ${{ secrets.CLOUDFLARE_D1_DATABASE_ID }}
+        run: python sync_to_d1.py
 
       - name: Save cache database
         uses: actions/cache/save@v4
