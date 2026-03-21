@@ -88,10 +88,21 @@ def main() -> int:
     for code, name in destinations.items():
         cache.upsert_airport(code, name)
 
+    is_ci = os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS")
+    last_log_time = [0]
+
     def on_progress(current, total, o, d, flight_date, direction, completed, failed):
+        import time as _t
         pct = current / total * 100
-        print(f"\r  [{pct:5.1f}%] {current}/{total} | {o}->{d} {flight_date} {direction} | done={completed} fail={failed}",
-              end="", flush=True)
+        msg = f"[{pct:5.1f}%] {current}/{total} | {o}->{d} {flight_date} {direction} | done={completed} fail={failed}"
+        if is_ci:
+            # In CI: print every 10th search or every 30 seconds so logs are visible
+            now = _t.time()
+            if current % 10 == 0 or current == total or (now - last_log_time[0]) > 30:
+                print(msg, flush=True)
+                last_log_time[0] = now
+        else:
+            print(f"\r  {msg}", end="", flush=True)
 
     logger.info(f"Starting refresh: {airport} -> {len(destinations)} destinations, {args.month}")
     start = time.time()
