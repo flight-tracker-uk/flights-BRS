@@ -36,7 +36,7 @@ STALENESS_TIERS = [
 ]
 
 # Chrome TLS fingerprint versions for rotation
-CHROME_VERSIONS = ["chrome_124", "chrome_126", "chrome_127", "chrome_128"]
+CHROME_VERSIONS = ["chrome_126", "chrome_127", "chrome_128", "chrome_131"]
 
 # Google consent cookie sets for rotation
 CONSENT_COOKIES = [

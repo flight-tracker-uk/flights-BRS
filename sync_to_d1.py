@@ -106,7 +106,7 @@ class D1Client:
         if not flights:
             return
 
-        CHUNK = 25  # flights per INSERT statement
+        CHUNK = 5  # flights per INSERT (D1 limits to ~100 bind params, 5×11=55)
         for i in range(0, len(flights), CHUNK):
             chunk = flights[i:i + CHUNK]
             placeholders = ",".join(["(?,?,?,?,?,?,?,?,?,?,?)"] * len(chunk))
