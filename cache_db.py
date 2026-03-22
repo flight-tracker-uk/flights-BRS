@@ -59,12 +59,6 @@ CREATE TABLE IF NOT EXISTS flights (
 
 CREATE INDEX IF NOT EXISTS idx_searches_lookup
     ON searches(origin, destination, flight_date, direction);
-CREATE INDEX IF NOT EXISTS idx_searches_staleness
-    ON searches(searched_at);
-CREATE INDEX IF NOT EXISTS idx_flights_search
-    ON flights(search_id);
-CREATE INDEX IF NOT EXISTS idx_flights_price
-    ON flights(price);
 """
 
 

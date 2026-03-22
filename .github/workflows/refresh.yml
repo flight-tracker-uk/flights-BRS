@@ -102,7 +102,7 @@ jobs:
         id: months
         run: |
           MONTHS_AHEAD="${{ github.event.inputs.months_ahead }}"
-          MONTHS_AHEAD="${MONTHS_AHEAD:-12}"
+          MONTHS_AHEAD="${MONTHS_AHEAD:-3}"
           MONTH_LIST=""
           for i in $(seq 0 $((MONTHS_AHEAD - 1))); do
             M=$(date -d "+${i} month" +%Y-%m 2>/dev/null || date -v+${i}m +%Y-%m)
