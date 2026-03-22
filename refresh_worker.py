@@ -297,6 +297,7 @@ def run_refresh(
         d1.wait_for_sync()
         d1.stop_background_sync()
         d1_stats = d1.stats
+        stats.d1_sync_time = d1_stats["time_spent"]
         logger.info(f"D1 sync: {d1_stats['api_calls']} calls, {d1_stats['rows_synced']} rows, "
                      f"{d1_stats['errors']} errors, {d1_stats['time_spent']:.1f}s")
 
