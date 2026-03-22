@@ -3,6 +3,7 @@
 
 Only exports data for the destinations in the local DB, and only deletes
 those destinations' data in D1 — so parallel jobs don't wipe each other.
+Skips unchanged searches to minimise D1 writes.
 """
 from __future__ import annotations
 
@@ -75,18 +76,18 @@ def export(db_path: Path = DB_PATH, dump_path: Path = DUMP_PATH) -> Path:
         f.write("\n")
         logger.info(f"Exported {len(routes)} routes")
 
-        # Insert searches with explicit IDs
+        # Insert searches with content_hash
         searches = local.execute("SELECT * FROM searches").fetchall()
-        # Use a large offset for IDs to avoid conflicts between parallel jobs
-        # Each destination gets a unique range based on a hash
         for s in searches:
+            content_hash = s['content_hash'] if 'content_hash' in s.keys() else ''
             f.write(
                 f"INSERT INTO searches(origin, destination, flight_date, direction, "
-                f"searched_at, status, error_message, flight_count) VALUES("
+                f"searched_at, status, error_message, flight_count, content_hash) VALUES("
                 f"{escape_sql(s['origin'])}, {escape_sql(s['destination'])}, "
                 f"{escape_sql(s['flight_date'])}, {escape_sql(s['direction'])}, "
                 f"{escape_sql(s['searched_at'])}, {escape_sql(s['status'])}, "
-                f"{escape_sql(s['error_message'])}, {s['flight_count']});\n"
+                f"{escape_sql(s['error_message'])}, {s['flight_count']}, "
+                f"{escape_sql(content_hash)});\n"
             )
         f.write("\n")
         logger.info(f"Exported {len(searches)} searches")

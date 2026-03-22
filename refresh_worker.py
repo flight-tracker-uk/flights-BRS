@@ -74,6 +74,8 @@ class RefreshStats:
         self.total = 0
         self.flights_found = 0
         self.flights_skipped_no_time = 0
+        self.flights_filtered = 0
+        self.unchanged = 0
         self.no_results = 0
         self.rate_limits = 0
         self.scrape_time = 0.0
@@ -98,6 +100,8 @@ class RefreshStats:
             f"Skipped (fresh):     {self.skipped}",
             f"Flights found:       {self.flights_found}",
             f"Flights skipped:     {self.flights_skipped_no_time} (no time data)",
+            f"Flights filtered:    {self.flights_filtered} (wrong time/stops for day trips)",
+            f"Unchanged searches:  {self.unchanged} (data identical, skip D1 write)",
             f"Destinations:        {len(self.destinations_searched)}",
             f"Dates covered:       {len(self.dates_searched)}",
             "",
@@ -179,12 +183,13 @@ def run_refresh(
         try:
             result = search_flights(
                 from_airport=o, to_airport=d, date=flight_date,
-                max_stops=None,  # get ALL flights including connections
+                max_stops=0,  # direct flights only
                 cookie_str=cookie_str, chrome_version=chrome_version,
             )
 
             flights = []
             skipped_no_time = 0
+            skipped_filtered = 0
             if result and result.flights:
                 for f in result.flights:
                     dep_time = f.departure or ""
@@ -203,6 +208,28 @@ def run_refresh(
                         skipped_no_time += 1
                         continue
 
+                    # Skip non-direct flights (shouldn't happen with max_stops=0 but safety check)
+                    stops = f.stops if isinstance(f.stops, int) else 0
+                    if stops > 0:
+                        skipped_filtered += 1
+                        continue
+
+                    # Skip next-day arrivals (useless for day trips)
+                    arrival_ahead = getattr(f, "arrival_time_ahead", "") or ""
+                    if arrival_ahead and arrival_ahead != "0":
+                        skipped_filtered += 1
+                        continue
+
+                    # For outbound: only keep flights arriving before noon
+                    if direction == "outbound" and arr_mins >= 720:
+                        skipped_filtered += 1
+                        continue
+
+                    # For return: only keep flights departing afternoon or later
+                    if direction == "return" and dep_mins < 720:
+                        skipped_filtered += 1
+                        continue
+
                     flights.append({
                         "airline": f.name or "",
                         "departure": dep_time,
@@ -211,12 +238,14 @@ def run_refresh(
                         "arrive_minutes": arr_mins,
                         "price": _parse_price(f.price),
                         "currency": "GBP",
-                        "stops": f.stops if isinstance(f.stops, int) else 0,
-                        "arrival_ahead": getattr(f, "arrival_time_ahead", "") or "",
+                        "stops": stops,
+                        "arrival_ahead": arrival_ahead,
                     })
 
             if skipped_no_time:
                 stats.flights_skipped_no_time += skipped_no_time
+            if skipped_filtered:
+                stats.flights_filtered += skipped_filtered
                 # Log details of first skipped flight for debugging
                 if result and result.flights:
                     for f in result.flights:
@@ -236,7 +265,9 @@ def run_refresh(
                 stats.no_results += 1
 
             # Save to local SQLite
-            cache.record_search(o, d, flight_date, direction, status=search_status, flights=flights)
+            changed = cache.record_search(o, d, flight_date, direction, status=search_status, flights=flights)
+            if not changed:
+                stats.unchanged += 1
 
             rate_limiter.record_success()
             stats.completed += 1

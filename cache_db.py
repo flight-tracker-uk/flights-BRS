@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS searches (
     status          TEXT NOT NULL DEFAULT 'success',
     error_message   TEXT,
     flight_count    INTEGER DEFAULT 0,
+    content_hash    TEXT DEFAULT '',
     UNIQUE(origin, destination, flight_date, direction)
 );
 
@@ -135,18 +136,48 @@ class FlightCache:
         )
         self.conn.commit()
 
+    def _compute_hash(self, flights: list) -> str:
+        """Compute a hash of flight data to detect changes."""
+        import hashlib
+        if not flights:
+            return ""
+        # Hash key fields: airline, times, price
+        parts = sorted(
+            f"{f.get('airline','')}/{f.get('departure','')}/{f.get('arrival','')}/{f.get('price',0)}"
+            for f in flights
+        )
+        return hashlib.md5("|".join(parts).encode()).hexdigest()
+
     def record_search(self, origin: str, dest: str, flight_date: str, direction: str,
-                      status: str = "success", error_msg: str = None, flights: list = None):
+                      status: str = "success", error_msg: str = None, flights: list = None) -> bool:
+        """Record a search. Returns True if data changed, False if unchanged."""
         now = datetime.utcnow().isoformat()
         flight_count = len(flights) if flights else 0
+        new_hash = self._compute_hash(flights) if flights else ""
 
+        # Check if data has changed
+        existing = self.conn.execute(
+            "SELECT content_hash FROM searches WHERE origin=? AND destination=? AND flight_date=? AND direction=?",
+            (origin, dest, flight_date, direction),
+        ).fetchone()
+
+        if existing and existing["content_hash"] == new_hash and new_hash != "":
+            # Data unchanged — just update the timestamp
+            self.conn.execute(
+                "UPDATE searches SET searched_at=? WHERE origin=? AND destination=? AND flight_date=? AND direction=?",
+                (now, origin, dest, flight_date, direction),
+            )
+            self.conn.commit()
+            return False
+
+        # Data changed — full upsert
         self.conn.execute(
-            "INSERT INTO searches(origin, destination, flight_date, direction, searched_at, status, error_message, flight_count) "
-            "VALUES(?,?,?,?,?,?,?,?) "
+            "INSERT INTO searches(origin, destination, flight_date, direction, searched_at, status, error_message, flight_count, content_hash) "
+            "VALUES(?,?,?,?,?,?,?,?,?) "
             "ON CONFLICT(origin, destination, flight_date, direction) DO UPDATE SET "
             "searched_at=excluded.searched_at, status=excluded.status, error_message=excluded.error_message, "
-            "flight_count=excluded.flight_count",
-            (origin, dest, flight_date, direction, now, status, error_msg, flight_count),
+            "flight_count=excluded.flight_count, content_hash=excluded.content_hash",
+            (origin, dest, flight_date, direction, now, status, error_msg, flight_count, new_hash),
         )
 
         row = self.conn.execute(
@@ -171,6 +202,7 @@ class FlightCache:
                 )
 
         self.conn.commit()
+        return True
 
     def get_search_age_hours(self, origin: str, dest: str, flight_date: str, direction: str) -> Optional[float]:
         row = self.conn.execute(
