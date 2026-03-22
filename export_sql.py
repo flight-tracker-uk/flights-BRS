@@ -33,22 +33,20 @@ def export(db_path: Path = DB_PATH, dump_path: Path = DUMP_PATH) -> Path:
     local = sqlite3.connect(str(db_path))
     local.row_factory = sqlite3.Row
 
-    # Find which origin-destination pairs we have
-    pairs = local.execute(
-        "SELECT DISTINCT origin, destination FROM searches"
+    # Find which (origin, destination, date) combos we have
+    search_keys = local.execute(
+        "SELECT DISTINCT origin, destination, flight_date FROM searches"
     ).fetchall()
-    origins = set(r["origin"] for r in pairs)
-    destinations = set(r["destination"] for r in pairs)
-    all_airports = origins | destinations
 
     with open(dump_path, "w") as f:
-        # Delete only THIS destination's flights and searches
-        # Use the search IDs to target the right flights
-        for pair in pairs:
-            o, d = pair["origin"], pair["destination"]
+        # Only delete flights/searches for the specific dates we're replacing
+        for row in search_keys:
+            o, d, fd = row["origin"], row["destination"], row["flight_date"]
             f.write(f"DELETE FROM flights WHERE search_id IN "
-                    f"(SELECT id FROM searches WHERE origin={escape_sql(o)} AND destination={escape_sql(d)});\n")
-            f.write(f"DELETE FROM searches WHERE origin={escape_sql(o)} AND destination={escape_sql(d)};\n")
+                    f"(SELECT id FROM searches WHERE origin={escape_sql(o)} "
+                    f"AND destination={escape_sql(d)} AND flight_date={escape_sql(fd)});\n")
+            f.write(f"DELETE FROM searches WHERE origin={escape_sql(o)} "
+                    f"AND destination={escape_sql(d)} AND flight_date={escape_sql(fd)};\n")
         f.write("\n")
 
         # Upsert airports
