@@ -245,6 +245,16 @@ def run_refresh(
             stats.flights_skipped_no_time += skipped_no_time
             stats.flights_filtered += skipped_filtered
 
+            # Deduplicate flights (Google sometimes returns same flight twice)
+            seen_flights = set()
+            unique_flights = []
+            for fl in flights:
+                key = (fl["airline"], fl["departure"], fl["arrival"], fl["price"])
+                if key not in seen_flights:
+                    seen_flights.add(key)
+                    unique_flights.append(fl)
+            flights = unique_flights
+
             stats.scrape_time += time.time() - scrape_start
             search_status = "success" if flights else "no_results"
             stats.flights_found += len(flights)
