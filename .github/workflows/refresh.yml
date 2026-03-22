@@ -30,7 +30,10 @@ jobs:
           cache: 'pip'
 
       - name: Install dependencies
-        run: pip install -r requirements.txt requests
+        run: pip install -r requirements.txt
+
+      - name: Install wrangler
+        run: npm install -g wrangler
 
       - name: Restore cache database
         uses: actions/cache/restore@v4
@@ -65,11 +68,7 @@ jobs:
             echo "No existing database — starting fresh"
           fi
 
-      - name: Run refresh (scrapes + syncs to D1 in real-time)
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          CLOUDFLARE_D1_DATABASE_ID: ${{ secrets.CLOUDFLARE_D1_DATABASE_ID }}
+      - name: Scrape Google Flights
         run: |
           DEST_FLAG=""
           if [ -n "${{ github.event.inputs.destinations }}" ]; then
@@ -81,7 +80,7 @@ jobs:
             python refresher.py --month "${MONTH}" ${DEST_FLAG} || true
           done
 
-      - name: Show database status
+      - name: Show database status after scrape
         if: always()
         run: |
           if [ -f ~/.flightcache/flights.db ]; then
@@ -93,6 +92,28 @@ jobs:
           print(f'Searches: {s[\"searches\"]}, Flights: {s[\"flights\"]}, Routes: {s[\"routes\"]}')
           c.close()
           "
+          fi
+
+      - name: Export SQL dump
+        if: always()
+        run: python export_sql.py
+
+      - name: Bulk import to Cloudflare D1
+        if: always()
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -f ~/.flightcache/d1_import.sql ]; then
+            echo "SQL dump size: $(du -h ~/.flightcache/d1_import.sql | cut -f1)"
+            echo "Lines: $(wc -l < ~/.flightcache/d1_import.sql)"
+            WRANGLER_SEND_METRICS=false wrangler d1 execute flights-cache \
+              --remote \
+              --file=~/.flightcache/d1_import.sql \
+              --yes
+            echo "D1 bulk import complete"
+          else
+            echo "No SQL dump to import"
           fi
 
       - name: Save cache database
@@ -107,6 +128,8 @@ jobs:
         if: always()
         with:
           name: flight-database
-          path: ~/.flightcache/flights.db
+          path: |
+            ~/.flightcache/flights.db
+            ~/.flightcache/d1_import.sql
           retention-days: 90
           overwrite: true

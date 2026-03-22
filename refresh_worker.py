@@ -1,4 +1,4 @@
-"""Core refresh logic with real-time D1 sync and detailed status reporting."""
+"""Core refresh logic — scrapes Google Flights to local SQLite."""
 from __future__ import annotations
 
 import calendar
@@ -13,7 +13,6 @@ from typing import Callable, Optional
 from cache_db import FlightCache, _parse_time_to_minutes
 from google_flights import search_flights
 from rate_limiter import RateLimiter, AbortError
-from sync_to_d1 import D1Client
 from config import STALENESS_TIERS, CHROME_VERSIONS, CONSENT_COOKIES
 
 logger = logging.getLogger(__name__)
@@ -159,13 +158,6 @@ def run_refresh(
     chrome_version = random.choice(CHROME_VERSIONS)
     cookie_idx = 0
 
-    # Set up D1 client with background sync
-    d1 = D1Client()
-    if d1.is_configured:
-        d1.sync_airports_and_routes(str(cache.db_path))
-        d1.start_background_sync()
-    else:
-        logger.info("D1 credentials not set — local-only mode")
 
     is_ci = os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS")
     last_log = [0]
@@ -261,10 +253,6 @@ def run_refresh(
             # Save to local SQLite
             cache.record_search(o, d, flight_date, direction, status=search_status, flights=flights)
 
-            # Queue D1 sync (runs in background, non-blocking)
-            if d1.is_configured:
-                d1.sync_search(o, d, flight_date, direction, now_str, search_status, None, flights)
-
             rate_limiter.record_success()
             stats.completed += 1
             stats.destinations_searched.add(d if direction == "outbound" else o)
@@ -291,14 +279,5 @@ def run_refresh(
 
     cache.cleanup_expired()
 
-    # Wait for background D1 sync to finish
-    if d1.is_configured:
-        logger.info("Waiting for background D1 sync to complete...")
-        d1.wait_for_sync()
-        d1.stop_background_sync()
-        d1_stats = d1.stats
-        stats.d1_sync_time = d1_stats["time_spent"]
-        logger.info(f"D1 sync: {d1_stats['api_calls']} calls, {d1_stats['rows_synced']} rows, "
-                     f"{d1_stats['errors']} errors, {d1_stats['time_spent']:.1f}s")
 
     return stats
