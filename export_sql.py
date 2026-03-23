@@ -66,7 +66,8 @@ def export(db_path: Path = DB_PATH, dump_path: Path = DUMP_PATH) -> Path:
         current_hashes[key] = content_hash
 
         prev_hash = previous_hashes.get(key)
-        if content_hash and content_hash == prev_hash:
+        # Skip if hash matches (including both being empty = no flights found both times)
+        if (content_hash == prev_hash) and prev_hash is not None:
             skipped_unchanged += 1
         else:
             changed_searches.append(s)
