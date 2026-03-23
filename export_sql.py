@@ -65,11 +65,21 @@ def export(db_path: Path = DB_PATH, dump_path: Path = DUMP_PATH) -> Path:
         content_hash = s['content_hash'] if 'content_hash' in s.keys() else ''
         current_hashes[key] = content_hash
 
-        if content_hash and content_hash == previous_hashes.get(key):
+        prev_hash = previous_hashes.get(key)
+        if content_hash and content_hash == prev_hash:
             skipped_unchanged += 1
         else:
             changed_searches.append(s)
+            # Log why it changed (first 5 only to avoid spam)
+            if len(changed_searches) <= 5:
+                if not prev_hash:
+                    logger.info(f"  CHANGED {key}: no previous hash (first run for this search)")
+                elif not content_hash:
+                    logger.info(f"  CHANGED {key}: no current hash (no flights found)")
+                else:
+                    logger.info(f"  CHANGED {key}: hash {prev_hash[:8]}→{content_hash[:8]}")
 
+    logger.info(f"Previous hashes loaded: {len(previous_hashes)}")
     logger.info(f"Searches: {len(all_searches)} total, {len(changed_searches)} changed, {skipped_unchanged} unchanged (skipped)")
 
     if not changed_searches:
