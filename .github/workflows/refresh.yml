@@ -216,13 +216,10 @@ jobs:
           STATS_API_KEY: ${{ secrets.STATS_API_KEY }}
         run: |
           if [ -f ~/.flightcache/last_stats.json ]; then
-            python report_stats.py scrape "$(cat ~/.flightcache/last_stats.json | python -c "
-          import sys, json
-          d = json.load(sys.stdin)
-          d['airport'] = 'BRS'
-          d['destination'] = '${{ matrix.destination }}'
-          print(json.dumps(d))
-          ")" || true
+            python -c "
+          from report_stats import report_scrape
+          report_scrape('BRS', '${{ matrix.destination }}', open('$HOME/.flightcache/last_stats.json').read())
+          " || true
           else
             python -c "
           from report_stats import report_error
