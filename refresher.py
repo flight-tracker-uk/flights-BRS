@@ -111,7 +111,8 @@ def main() -> int:
     print(f"\nDatabase totals: {db_stats['searches']} searches, {db_stats['flights']} flights, {db_stats['routes']} routes")
     cache.close()
 
-    # Output stats as JSON for CI to capture
+    # Output stats as JSON for CI — accumulate across months
+    import json
     elapsed = time.time() - stats.start_time
     stats_json = {
         "started_at": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(stats.start_time)),
@@ -133,8 +134,27 @@ def main() -> int:
         "avg_per_search": round(elapsed / max(stats.completed, 1), 2),
         "avg_scrape_time": round(stats.scrape_time / max(stats.completed, 1), 2),
     }
-    import json
+
+    # Accumulate with previous months' stats (workflow runs multiple months per job)
     stats_path = CACHE_DIR / "last_stats.json"
+    if stats_path.exists():
+        try:
+            prev = json.loads(stats_path.read_text())
+            for key in ["total", "completed", "failed", "no_results", "flights_found",
+                         "flights_filtered", "flights_skipped_no_time", "rate_limits", "unchanged"]:
+                stats_json[key] = stats_json.get(key, 0) + prev.get(key, 0)
+            stats_json["scrape_time"] = round(stats_json["scrape_time"] + prev.get("scrape_time", 0), 1)
+            stats_json["rate_limit_wait_time"] = round(stats_json["rate_limit_wait_time"] + prev.get("rate_limit_wait_time", 0), 1)
+            stats_json["duration_secs"] = round(stats_json["duration_secs"] + prev.get("duration_secs", 0), 1)
+            stats_json["dates_searched"] = stats_json["dates_searched"] + prev.get("dates_searched", 0)
+            stats_json["started_at"] = prev.get("started_at", stats_json["started_at"])
+            total_completed = stats_json["completed"]
+            total_elapsed = stats_json["duration_secs"]
+            stats_json["avg_per_search"] = round(total_elapsed / max(total_completed, 1), 2)
+            stats_json["avg_scrape_time"] = round(stats_json["scrape_time"] / max(total_completed, 1), 2)
+        except Exception:
+            pass
+
     stats_path.write_text(json.dumps(stats_json))
     print(f"\nStats written to {stats_path}")
 

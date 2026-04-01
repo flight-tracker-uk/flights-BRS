@@ -213,6 +213,21 @@ def export(db_path: Path = DB_PATH, dump_path: Path = DUMP_PATH) -> Path:
     size_kb = dump_path.stat().st_size / 1024
     logger.info(f"Exported {exported_searches} searches, {exported_flights} flights, {history_count} price history records ({size_kb:.0f} KB)")
     logger.info(f"Skipped {skipped_unchanged} unchanged searches")
+
+    # Write export stats JSON for CI reporting
+    export_stats = {
+        "exported_searches": exported_searches,
+        "exported_flights": exported_flights,
+        "skipped_unchanged": skipped_unchanged,
+        "changed_searches": len(changed_searches),
+        "total_searches": len(all_searches),
+        "history_records": history_count,
+        "size_kb": round(size_kb, 1),
+    }
+    stats_path = dump_path.parent / "export_stats.json"
+    with open(stats_path, "w") as f:
+        json.dump(export_stats, f)
+
     return dump_path
 
 

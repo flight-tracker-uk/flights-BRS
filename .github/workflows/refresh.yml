@@ -261,10 +261,13 @@ jobs:
             DUMP_LINES=$(wc -l < "$DUMP_FILE")
             echo "SQL dump: ${DUMP_SIZE}KB, ${DUMP_LINES} lines, exported in ${EXPORT_DURATION}s"
 
-            # Report export stats
+            # Report export stats from export_stats.json
             python -c "
+          import json
           from report_stats import report_export
-          report_export('BRS', '${{ matrix.destination }}', 0, 0, 0, ${DUMP_SIZE}, ${EXPORT_DURATION})
+          with open('$HOME/.flightcache/export_stats.json') as f:
+              s = json.load(f)
+          report_export('BRS', '${{ matrix.destination }}', s.get('exported_searches',0), s.get('exported_flights',0), s.get('skipped_unchanged',0), s.get('size_kb',0), ${EXPORT_DURATION})
           " || true
 
             # Import with retry tracking
@@ -297,9 +300,14 @@ jobs:
             echo "import_duration=$IMPORT_DURATION" >> $GITHUB_OUTPUT
 
             # Report import stats
+            if [ "$IMPORT_OK" = "true" ]; then
+              IMPORT_PY=True
+            else
+              IMPORT_PY=False
+            fi
             python -c "
           from report_stats import report_import
-          report_import('BRS', '${{ matrix.destination }}', ${ATTEMPT}, ${IMPORT_OK}, ${IMPORT_DURATION}, '${IMPORT_ERROR}')
+          report_import('BRS', '${{ matrix.destination }}', ${ATTEMPT}, ${IMPORT_PY}, ${IMPORT_DURATION}, '${IMPORT_ERROR}')
           " || true
           fi
 
