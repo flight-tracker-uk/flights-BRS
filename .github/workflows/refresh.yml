@@ -10,7 +10,11 @@ on:
         required: false
         type: string
       months_ahead:
-        description: 'Number of months ahead to search (default: 12)'
+        description: 'Number of months ahead to search (default: 6)'
+        required: false
+        type: string
+      specific_month:
+        description: 'Single month to scrape (YYYY-MM). Overrides months_ahead.'
         required: false
         type: string
 
@@ -180,14 +184,19 @@ jobs:
         if: steps.filter.outputs.skip != 'true'
         id: months
         run: |
-          MONTHS_AHEAD="${{ github.event.inputs.months_ahead }}"
-          MONTHS_AHEAD="${MONTHS_AHEAD:-6}"
-          MONTH_LIST=""
-          for i in $(seq 0 $((MONTHS_AHEAD - 1))); do
-            M=$(date -d "+${i} month" +%Y-%m 2>/dev/null || date -v+${i}m +%Y-%m)
-            MONTH_LIST="${MONTH_LIST}${M},"
-          done
-          MONTH_LIST="${MONTH_LIST%,}"
+          SPECIFIC="${{ github.event.inputs.specific_month }}"
+          if [ -n "$SPECIFIC" ]; then
+            MONTH_LIST="$SPECIFIC"
+          else
+            MONTHS_AHEAD="${{ github.event.inputs.months_ahead }}"
+            MONTHS_AHEAD="${MONTHS_AHEAD:-6}"
+            MONTH_LIST=""
+            for i in $(seq 0 $((MONTHS_AHEAD - 1))); do
+              M=$(date -d "+${i} month" +%Y-%m 2>/dev/null || date -v+${i}m +%Y-%m)
+              MONTH_LIST="${MONTH_LIST}${M},"
+            done
+            MONTH_LIST="${MONTH_LIST%,}"
+          fi
           echo "months=$MONTH_LIST" >> $GITHUB_OUTPUT
           echo "Months to scrape: $MONTH_LIST"
 
