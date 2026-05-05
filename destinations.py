@@ -1,4 +1,4 @@
-"""Bristol Airport (BRS) destinations — verified March 2026."""
+"""Bristol Airport (BRS) destinations — May 2026."""
 
 DESTINATIONS = {
     "BRS": {
@@ -12,12 +12,12 @@ DESTINATIONS = {
             "AMS": "Amsterdam",
             "ATH": "Athens",
             "AYT": "Antalya",
-            "BGO": "Bergen",
             "BCN": "Barcelona",
+            "BER": "Berlin",
             "BFS": "Belfast Intl",
+            "BGO": "Bergen",
             "BHD": "Belfast City",
             "BJV": "Bodrum",
-            "BER": "Berlin",
             "BOD": "Bordeaux",
             "BOJ": "Bourgas",
             "BRI": "Bari",
@@ -49,7 +49,6 @@ DESTINATIONS = {
             "GRO": "Girona",
             "GVA": "Geneva",
             "HER": "Heraklion",
-            "HRG": "Hurghada",
             "IBZ": "Ibiza",
             "INN": "Innsbruck",
             "INV": "Inverness",
@@ -58,8 +57,8 @@ DESTINATIONS = {
             "JER": "Jersey",
             "JSI": "Skiathos",
             "JTR": "Santorini",
-            "KGS": "Kos",
             "KEF": "Reykjavik",
+            "KGS": "Kos",
             "KLX": "Kalamata",
             "KRK": "Krakow",
             "KTT": "Kittila",
@@ -101,12 +100,10 @@ DESTINATIONS = {
             "RVN": "Rovaniemi",
             "RZE": "Rzeszow",
             "SAW": "Istanbul",
-            "SID": "Sal",
             "SKG": "Thessaloniki",
             "SMI": "Symi",
             "SOF": "Sofia",
             "SPU": "Split",
-            "SSH": "Sharm el Sheikh",
             "SVQ": "Seville",
             "SZG": "Salzburg",
             "TFS": "Tenerife",
